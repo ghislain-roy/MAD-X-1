@@ -1,6 +1,6 @@
 #include "madx.h"
 
-void  makerdtstwisstable(void);
+void makerdtstwisstable(void);
 void printpoly(int*, int );
 
 static void
@@ -857,11 +857,19 @@ pro_ptc_setswitch(struct in_cmd* cmd)
   }
 
   /*MAPDUMP LEVEL*/
-  if ( name_list_pos("mapdump", nl) >=0 )
-  {
+  if ( name_list_pos("mapdump", nl) >=0 ) {
     found = command_par_value2("mapdump", cmd->clone, &switchvalue);
+    // if (debuglevel > 0) printf("mapdump is found and its value is %f\n", switchvalue);
     int mapdump = (int)switchvalue;
     w_ptc_setmapdumplevel_(&mapdump);
+  }
+
+  /*MADPRINT TPSA FORMAT*/
+  if ( name_list_pos("madprint", nl) >=0 ) {
+    found = command_par_value2("madprint", cmd->clone, &switchvalue);
+    // if (debuglevel > 0) printf("madprint is found and its value is %f\n", switchvalue);
+    int madprint = (int)switchvalue;
+    w_ptc_setmadprint_(&madprint);
   }
 
   /*ACCELERATION SWITCH*/
@@ -931,6 +939,19 @@ pro_ptc_setswitch(struct in_cmd* cmd)
     if (debuglevel > 0) printf("stochastic is not present (keeping current value)\n");
    }
 
+/*spin SWITCH*/
+  found = command_par_value_user2("spin", cmd->clone, &switchvalue);
+  if (found)
+   {
+    if (debuglevel > 0) printf("spin is found and its value is %f\n", switchvalue);
+    i = (int)switchvalue;
+    w_ptc_setspin_(&i);
+   }
+  else
+   {
+    if (debuglevel > 10) printf("spin is not present (keeping current value)\n");
+   }
+   
   /*envelope SWITCH*/
   found = command_par_value_user2("envelope", cmd->clone, &switchvalue);
   if (found)
@@ -1920,23 +1941,20 @@ pro_ptc_track(struct in_cmd* cmd)
 }
 /*_______________________________________________________*/
 
-void printpoly(int p[6], int dim )
+void printpoly(int *p, int dim )
 {
- int i;
+  int i;
 
- printf("f"); /*icase*/
+  printf("f"); /*icase*/
 
- for (i=0; i<dim; i++)
-  {
+  for (i=0; i<dim; i++)
     printf("%1d",p[i]); /*icase*/
-  }
 
- printf("\n");
-
+  printf("\n");
 }
 
 /*_______________________________________________________*/
-void makerdtstwisstable()
+void makerdtstwisstable(void)
 {
   int i;
 

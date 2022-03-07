@@ -1,9 +1,9 @@
 
   ++++++++++++++++++++++++++++++++++++++++++++
-  +     MAD-X 5.06.01  (64 bit, Linux)       +
+  +     MAD-X 5.08.00  (64 bit, Linux)       +
   + Support: mad@cern.ch, http://cern.ch/mad +
-  + Release   date: 2020.09.01               +
-  + Execution date: 2021.04.21 10:14:48      +
+  + Release   date: 2022.01.13               +
+  + Execution date: 2022.01.27 22:43:17      +
   ++++++++++++++++++++++++++++++++++++++++++++
 a = 0.1;
 
@@ -57,8 +57,11 @@ final orbit vector:     8.156298E-03  3.380874E-03 -1.525084E-02 -6.632170E-03 -
            synch_2            synch_3            synch_4            synch_5 
                  0                  0                  0                  0 
 
-           synch_6            synch_8             nflips 
-                 0                  0                  0 
+           synch_6            synch_8             nflips              dqmin 
+                 0                  0                  0                  0 
+
+       dqmin_phase 
+       1.659969125 
 !save, sequence=myseq, file="myseq";
 
 select, flag=makethin, class=quadrupole, slice=3;
@@ -96,8 +99,11 @@ final orbit vector:     7.904734E-03  3.280324E-03 -1.524958E-02 -6.631611E-03 -
            synch_2            synch_3            synch_4            synch_5 
                  0                  0                  0                  0 
 
-           synch_6            synch_8             nflips 
-                 0                  0                  0 
+           synch_6            synch_8             nflips              dqmin 
+                 0                  0                  0                  0 
+
+       dqmin_phase 
+       1.636547187 
 survey, file="test.survey", perm_align_survey;
 
 sixtrack;
@@ -141,7 +147,7 @@ ptc_create_layout,model=1, method=2, nst=2, exact=true;
  Before start:    0.0000000000000000        0.0000000000000000        0.0000000000000000     
  Before   end:    0.0000000000000000        0.0000000000000000        0.0000000000000000     
  After  start:    0.0000000000000000        0.0000000000000000        0.0000000000000000     
- After    end:    0.0000000000000000        0.0000000000000000        3.0000000000000004     
+ After    end:    0.0000000000000000        0.0000000000000000        3.0000000000000000     
 ptc_align;
 
 ptc_setswitch, debuglevel=0, fringe=false,  time=false, totalpath=false, exact_mis=false;                                                

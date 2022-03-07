@@ -349,7 +349,7 @@ subroutine trrun(switch, turns, orbit0, rt, part_id, last_turn, last_pos, &
         
         !-------- Track through element  // suppress dxt 13.12.04
         call ttmap(switch, code, el, z, jmax, dxt, dyt, sum, tot_turn+turn, part_id, &
-             last_turn, last_pos, last_orbit, aperflag, maxaper, al_errors, onepass, debug, theta, thin_foc)
+             last_turn, last_pos, last_orbit, aperflag, maxaper, al_errors, onepass, debug, theta, thin_foc,.false.)
 
         !-------- Space Charge update
         call SC_Update(orbit0, z);
@@ -363,6 +363,7 @@ subroutine trrun(switch, turns, orbit0, rt, part_id, last_turn, last_pos, &
         endif
 
         nlm = nlm + 1
+        
         if (nobs .gt. 0)  then
            OBS_ORB = zero
            call get_node_vector('obs_orbit ', lobs, obs_orb)
@@ -371,8 +372,10 @@ subroutine trrun(switch, turns, orbit0, rt, part_id, last_turn, last_pos, &
            if (onetable)  then
               spos = sum
               call element_name(el_name,len(el_name))
-              call tt_putone(jmax, tot_turn+turn, tot_segm, segment, part_id, &
-                   z, obs_orb,spos,nlm,el_name,onlyaver)
+              if (mod(turn, ffile) .eq. 0)  then
+                 call tt_putone(jmax, tot_turn+turn, tot_segm, segment, part_id, &
+                      z, obs_orb,spos,nlm,el_name,onlyaver)
+              endif
            else
               if (mod(turn, ffile) .eq. 0)  then
                  do i = 1, jmax
@@ -525,7 +528,7 @@ subroutine init_elements
 end subroutine init_elements
 
 subroutine ttmap(switch,code,el,track,ktrack,dxt,dyt,sum,turn,part_id, &
-     last_turn,last_pos,last_orbit,aperflag,maxaper,al_errors,onepass, debug, theta, thin_foc)
+     last_turn,last_pos,last_orbit,aperflag,maxaper,al_errors,onepass, debug, theta, thin_foc, isFirst)
   use twtrrfi
   use twiss0fi
   use name_lenfi
@@ -553,7 +556,7 @@ subroutine ttmap(switch,code,el,track,ktrack,dxt,dyt,sum,turn,part_id, &
   double precision :: last_orbit(6,*), maxaper(6), al_errors(align_max)
   logical :: aperflag, onepass, lost_global
 
-  logical :: fmap, debug
+  logical :: fmap, debug, isFirst
   logical :: run=.false., dynap=.false., thin_foc
   integer :: i, nn, jtrk, apint
   double precision :: ct, tmp, st, theta
@@ -619,7 +622,7 @@ subroutine ttmap(switch,code,el,track,ktrack,dxt,dyt,sum,turn,part_id, &
           call get_node_vector('aper_offset ',nn,offset)
           call trcoll(apint,  aperture, offset, al_errors,  maxaper, &
                 turn, sum, part_id, last_turn, last_pos, last_orbit, track, ktrack, debug)
-          EXIT ! They are anway checked against all the particles so no need to continue to loop
+          EXIT ! They are anyway checked against all the particles so no need to continue to loop
           endif 
         enddo 
 
@@ -725,11 +728,14 @@ subroutine ttmap(switch,code,el,track,ktrack,dxt,dyt,sum,turn,part_id, &
     case (code_rfmultipole)
        call ttrfmult(track,ktrack,turn)
 
+    case (code_wire)
+       call ttwire(track,ktrack, isFirst)
+
     case(code_changerefp0)
       call ttchangep0(track,ktrack)
 
     case (code_hmonitor:code_rcollimator, code_instrument, &
-        code_slmonitor:code_imonitor, code_placeholder, code_collimator)
+        code_slmonitor:code_imonitor, code_placeholder)
         if(el .gt. 0) call ttdrf(el,track,ktrack)
     case default ! The rest: do nothing
 
@@ -1049,7 +1055,7 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
   integer :: iord, jtrk, nd, nord, i, j, n_ferr, nn, ns, noisemax, nn1, in, mylen
   integer :: nnt, nst
   double precision :: curv, dbi, dbr, dipi, dipr, dx, dy, elrad
-  double precision :: pt, px, py, rfac
+  double precision :: pt, px, py, rfac, x
   double precision :: f_errors(0:maxferr)
   double precision :: field(2,0:maxmul)
   !double precision :: vals(2,0:maxmul)
@@ -1058,7 +1064,7 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
   double precision :: bvk, node_value, ttt
   double precision :: npeak(100), nlag(100), ntune(100), temp, noise
   character(len=name_len) name
-  double precision :: beta_sqr, f_damp_t
+  double precision :: beta_sqr, f_damp_t,  delta_plus_1
 
   integer :: node_fd_errors, store_no_fd_err, get_option
   double precision , external:: get_tt_attrib  
@@ -1070,6 +1076,7 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
         ordinv(iord) = one / dble(iord)
      enddo
      const = arad * (betas * gammas)**3 / three
+     beti    = one / betas
      first = .false.
   endif
 
@@ -1177,9 +1184,9 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
      dyt(:ktrack) = zero
      !----------- introduction of dipole focusing
      if (elrad.gt.zero .and. thin_foc) then
-
-        DXT(:ktrack) = dipr*dipr*TRACK(1,:ktrack)/elrad
-        DYT(:ktrack) = dipi*dipi*TRACK(3,:ktrack)/elrad
+        !!! terms should scale with h_c k0 therefore (dipr-dbr) dipr
+        DXT(:ktrack) = (dipr-dbr)*dipr*TRACK(1,:ktrack)/elrad
+        DYT(:ktrack) = (dipi-dbi)*dipi*TRACK(3,:ktrack)/elrad
      endif
   !---- Accumulate multipole kick from highest multipole to quadrupole.
   else
@@ -1195,10 +1202,12 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
         enddo
      enddo
      if (elrad.gt.zero .and. thin_foc) then
-        DXT(:ktrack) = DXT(:ktrack) + dipr*dipr*TRACK(1,:ktrack)/elrad
-        DYT(:ktrack) = DYT(:ktrack) + dipi*dipi*TRACK(3,:ktrack)/elrad
+        !!! terms should scale with h_c k0 therefore (dipr-dbr) dipr
+        DXT(:ktrack) = DXT(:ktrack) + (dipr-dbr)*dipr*TRACK(1,:ktrack)/elrad
+        DYT(:ktrack) = DYT(:ktrack) + (dipi-dbi)*dipi*TRACK(3,:ktrack)/elrad
      endif
   endif
+
 
   !---- Radiation loss at entrance.
   if (radiate .and. elrad .ne. 0) then
@@ -1206,14 +1215,16 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
      if (damp) then
         do jtrk = 1,ktrack
            curv = sqrt((dipr + dxt(jtrk))**2 + (dipi + dyt(jtrk))**2) / elrad
+           pt = track(6,jtrk)
+           x = track(1,jtrk)
            if (quantum) then
               call trphot(elrad,curv,rfac,pt)
            else
-              rfac = const * curv**2 * elrad
+              delta_plus_1 = sqrt(pt*pt + two*pt*beti + one);
+              rfac =  const * curv**2 * delta_plus_1 * elrad * (one + dipr/elrad * x)
            endif
            px = track(2,jtrk)
            py = track(4,jtrk)
-           pt = track(6,jtrk)
            beta_sqr = (pt*pt + two*pt*beti + one) / (beti + pt)**2;
            f_damp_t = sqrt(one + rfac*(rfac - two) / beta_sqr);
            track(2,jtrk) = px * f_damp_t;
@@ -1224,8 +1235,10 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
      else
         !---- Store energy loss on closed orbit.
         ! 2016-Mar-16  18:45:41  ghislain: track(i,1) is not the closed orbit but the first particle!!!
-        rfac = const * ((dipr + dxt(1))**2 + (dipi + dyt(1))**2)
         pt = track(6,1)
+        x = track(6,1)
+        delta_plus_1 = sqrt(pt*pt + two*pt*beti + one);
+        rfac = const * ((dipr + dxt(1))**2 + (dipi + dyt(1))**2) * elrad * (one + dipr/elrad * x)
         beta_sqr = (pt*pt + two*pt*beti + one) / (beti + pt)**2;
         f_damp_t = sqrt(one + rfac*(rfac - two) / beta_sqr);
         TRACK(2,:ktrack) = TRACK(2,:ktrack) * f_damp_t;
@@ -1253,15 +1266,17 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
      !---- Full damping.
      if (damp) then
         do jtrk = 1,ktrack
+           x = track(1,jtrk)
+           pt = track(6,jtrk)
            curv = sqrt((dipr + dxt(jtrk))**2 + (dipi + dyt(jtrk))**2) / elrad
            if (quantum) then
               call trphot(elrad,curv,rfac,pt)
            else
-              rfac = const * curv**2 * elrad
+              delta_plus_1 = sqrt(pt*pt + two*pt*beti + one);
+              rfac = const * curv**2 * delta_plus_1 * elrad * (one + dipr/elrad * x)
            endif
            px = track(2,jtrk)
            py = track(4,jtrk)
-           pt = track(6,jtrk)
            beta_sqr = (pt*pt + two*pt*beti + one) / (beti + pt)**2;
            f_damp_t = sqrt(one + rfac*(rfac - two) / beta_sqr);
            track(2,jtrk) = px * f_damp_t;
@@ -1273,8 +1288,10 @@ subroutine ttmult(track,ktrack,dxt,dyt,turn, thin_foc)
      else
 
         !---- Store energy loss on closed orbit.
-        rfac = const * ((dipr + dxt(1))**2 + (dipi + dyt(1))**2)
+        x = track(1,1)
         pt = track(6,1)
+        delta_plus_1 = sqrt(pt*pt + two*pt*beti + one);
+        rfac = const * ((dipr + dxt(1))**2 + (dipi + dyt(1))**2) * delta_plus_1 * (one + dipr/elrad * x)
         beta_sqr = (pt*pt + two*pt*beti + one) / (beti + pt)**2;
         f_damp_t = sqrt(one + rfac*(rfac - two) / beta_sqr);
         TRACK(2,:ktrack) = TRACK(2,:ktrack) * f_damp_t;
@@ -1579,7 +1596,6 @@ subroutine ttchangep0(track,ktrack)
   end do
 
 end subroutine ttchangep0
-
 
 
 subroutine ttcrabrf(track,ktrack,turn)
@@ -2058,15 +2074,22 @@ subroutine ttbb(track,ktrack)
   double precision :: gamma0, beta0, beta_dp, ptot, b_dir
 
   integer :: get_option
-  double precision :: get_value, node_value, get_variable
+  double precision :: get_value, node_value, get_variable, npart_el, npart_eff
   double precision, parameter :: cme32=1d-32
 
   !---- Calculate momentum deviation and according changes
   !     of the relativistic factor beta0
+  npart_el = node_value('npart ')
+  if (npart_el .gt. zero) then
+    npart_eff = npart_el
+  else
+    npart_eff = get_value('probe ', 'npart ')
+  endif
+
   q = get_value('probe ','charge ')
   q_prime = node_value('charge ')
   parvec(5) = get_value('probe ', 'arad ')
-  parvec(6) = node_value('charge ') * get_value('probe ', 'npart ')
+  parvec(6) = node_value('charge ') * npart_eff
   parvec(7) = get_value('probe ','gamma ')
 
   dp = get_variable('track_deltap ')
@@ -2721,7 +2744,6 @@ subroutine tt_putone(npart,turn,tot_segm,segment,part_id,z,orbit0,&
        call augment_count(table)
     enddo
   endif
-
 end subroutine tt_putone
 
 subroutine tt_puttab(npart,turn,nobs,orbit,orbit0,spos)
@@ -2757,10 +2779,12 @@ subroutine tt_puttab(npart,turn,nobs,orbit,orbit0,spos)
   call double_to_table_curr(table, 'turn ', tt)
   call double_to_table_curr(table, 'number ', tn)
   call double_to_table_curr(table, 'e ', energy)
+
   do i = 1, 6
      tmp = orbit(i) - orbit0(i)
      call double_to_table_curr(table, vec_names(i), tmp)
   enddo
+
   call double_to_table_curr(table,vec_names(7),spos)
   call augment_count(table)
 end subroutine tt_puttab
@@ -3771,7 +3795,7 @@ subroutine trclor(switch,orbit0)
     theta = node_value('tilt ')
         !-------- Track through element
         call ttmap(switch,code,el,z,pmax,dxt,dyt,sum,turn,part_id, &
-             last_turn,last_pos,last_orbit,aperflag,maxaper,al_errors,onepass, debug, theta, thin_foc)
+             last_turn,last_pos,last_orbit,aperflag,maxaper,al_errors,onepass, debug, theta, thin_foc, .true.)
 
         !--------  Misalignment at end of element (from twissfs.f)
         if (code .ne. code_drift .and. n_align .ne. 0)  then
@@ -3885,6 +3909,68 @@ subroutine ttnllens(track,ktrack)
   enddo
 end subroutine ttnllens
 
+subroutine ttwire(track, ktrack, isFirst)
+  use twtrrfi
+  use trackfi
+  use math_constfi, only : zero, one, two, four
+  use phys_constfi, only : clight
+  implicit none
+  double precision :: track(6,*)
+  integer :: ktrack
+  logical :: isFirst, bborbit, onepass
+  double precision :: xma(0:maxmul), yma(0:maxmul), current(0:maxmul), l_int(0:maxmul)
+  double precision :: l_phy(0:maxferr)
+  integer :: i, j, wire_flagco, nn, ibeco
+  double precision :: dx, dy, embl, l, cur, dxi, dyi, chi, nnorm, xi, yi, RTWO, pc
+  double precision :: closed_orb_kick_px, closed_orb_kick_py
+
+  ! WIRE basd on the SixTrack implementation
+  double precision, external :: node_value, get_value, get_closed_orb_node
+  integer, external :: get_option
+  external ::set_closed_orb_node
+
+  call get_node_vector('xma ', nn, xma)
+  call get_node_vector('yma ', nn, yma)
+  call get_node_vector('current ', nn, current)
+  call get_node_vector('l_int ', nn, l_int)
+  call get_node_vector('l_phy ', nn, l_phy)
+
+  pc = get_value('probe ','pc ')
+  bborbit = get_option('bborbit ') .ne. 0
+
+do i = 0, nn-1
+  dx   = xma(i) ! displacement x [m]
+  dy   = yma(i) ! displacement y [mm]
+  embl = l_int(i)  ! integrated length [m]
+  L    = l_phy(i) ! physical length [m]
+  cur  = current(i)
+  chi = pc*1e9/clight
+  NNORM=1e-7/chi
+
+  do j=1,ktrack
+    xi = (TRACK(1,j)-dx) ! [m]
+    yi = (TRACK(3,j)-dy) ! [m]
+
+    ! 3 apply wire kick
+    RTWO = xi**2+yi**2
+
+    TRACK(2,j) = TRACK(2,j)-(((CUR*NNORM)*xi)*(sqrt((embl+L)**2+four*RTWO)-sqrt((embl-L)**2+four*RTWO)))/RTWO
+    TRACK(4,j) = TRACK(4,j)-(((CUR*NNORM)*yi)*(sqrt((embl+L)**2+four*RTWO)-sqrt((embl-L)**2+four*RTWO)))/RTWO  
+    
+  end do
+end do
+
+  onepass  = get_option('onepass ') .ne. 0
+  if(.not. bborbit .and. .not. onepass) then
+      closed_orb_kick_px = get_closed_orb_node(2)
+      closed_orb_kick_py = get_closed_orb_node(4)
+      do j=1,ktrack
+         TRACK(2,j) = TRACK(2,j) - closed_orb_kick_px
+         TRACK(4,j) = TRACK(4,j) - closed_orb_kick_py
+      enddo 
+endif
+
+end subroutine ttwire
 !FIXME Unused dummy argument 'turn'
 subroutine ttrfmult(track, ktrack, turn)
   use twtrrfi
@@ -4183,7 +4269,7 @@ subroutine tttquad(track, ktrack)
   use twtrrfi
   use trackfi
   use twiss_elpfi
-  use math_constfi, only : zero, one, two, three, half
+  use math_constfi, only : zero, one, two, three, half, sqrt2
   implicit none
   !-------------------------*
   ! Andrea Latina 2012-2013 *
@@ -4210,8 +4296,6 @@ subroutine tttquad(track, ktrack)
   integer :: jtrk, elpar_vl
 
   double precision, external :: node_value
-  double precision, parameter ::  sqrt2=1.41421356237310d0
-
   double precision, external :: get_value
 
   double precision :: f_errors(0:maxferr)
@@ -4222,20 +4306,16 @@ subroutine tttquad(track, ktrack)
   !beta = get_value('probe ','beta ')
   
   !---- Read-in the parameters
-  elpar_vl = el_par_vector(q_k1st, g_elpar)
+  elpar_vl = el_par_vector(q_max, g_elpar)
   
   length = node_value('l ');
   tilt = g_elpar(q_tilt)
 
   f_errors = zero
   n_ferr = node_fd_errors(f_errors)
-  k1  = g_elpar(q_k1)  + g_elpar(q_k1t)
-  k1s = g_elpar(q_k1s) + g_elpar(q_k1st)
+  k1  = g_elpar(q_k1)  * (1 + g_elpar(q_ktap))
+  k1s = g_elpar(q_k1s) * (1 + g_elpar(q_ktap))
   
-  !k1  = node_value('k1 ')
-  !k1s = node_value('k1s ')
-
-
   if (length.ne.zero) then
      k1  = k1  + f_errors(2)/length
      k1s = k1s + f_errors(3)/length
@@ -4386,7 +4466,7 @@ subroutine tttdipole(track, ktrack, code)
   double precision :: length, angle, rho, h, k0, k1
   double precision :: x, px, y, py, z, pt, delta_plus_1
   double precision :: hx, hy, rfac, curv
-  double precision :: e1, e2, h1, h2, hgap, fint, fintx
+  double precision :: e1, e2, h1, h2, hgap, fint, fintx, ktap
   double precision :: beta_sqr, beta_gamma, f_damp_t
 
   double precision, external :: node_value, get_value
@@ -4401,22 +4481,16 @@ subroutine tttdipole(track, ktrack, code)
   !radiate = get_value('probe ','radiate ') .ne. zero
   !All these were removed since they were global parameters. 
   
-  elpar_vl = el_par_vector(b_k3s, g_elpar)
+  elpar_vl = el_par_vector(b_max, g_elpar)
   !---- Read-in dipole edges angles
-  !e1    = node_value('e1 ');
-  !e2    = node_value('e2 ');
   e1 = g_elpar(b_e1)
   e2 = g_elpar(b_e2)
-  !h1    = node_value('h1 ')
-  !h2    = node_value('h2 ')
   h1 = g_elpar(b_h1)
   h2 = g_elpar(b_h2)
-  !hgap  = node_value('hgap ')
-  !fint  = node_value('fint ')
-  !fintx = node_value('fintx ')
   hgap = g_elpar(b_hgap)
   fint = g_elpar(b_fint)
   fintx = g_elpar(b_fintx)
+  ktap = g_elpar(b_ktap)
   
   length = node_value('l ')
   angle  = g_elpar(b_angle)
@@ -4425,9 +4499,6 @@ subroutine tttdipole(track, ktrack, code)
   h = angle/length
   k0 = g_elpar(b_k0)
   k1 = g_elpar(b_k1)
-  !k0 = node_value('k0 ') ! was h
-  !k1 = node_value('k1 ')
-
 
   if (code .eq. code_rbend) then
      e1 = e1 + angle / two;
@@ -4442,6 +4513,9 @@ subroutine tttdipole(track, ktrack, code)
   else
     k0 = h
   endif
+
+  k0 = k0 * (1+ktap) ! tapering to main field only
+ 
   k0 = k0 + f_errors(0) / length ! dipole term
   k1 = k1 + f_errors(2) / length ! quad term
 
@@ -4449,6 +4523,7 @@ subroutine tttdipole(track, ktrack, code)
      call ttdrf(length,track,ktrack);
      return
   endif
+  
   !---- Apply entrance dipole edge effect
   if (node_value('kill_ent_fringe ') .eq. zero) &
        call ttdpdg_map(track, ktrack, e1, k0, hgap, fint, zero)

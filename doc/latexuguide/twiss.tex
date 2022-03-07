@@ -4,34 +4,31 @@
 %  Changed by: Hans Grote, 15-Jan-2003 
 %  Changed by: Frank Schmidt, 06-APR-2003 
 %  Changed by: ghislain 18-JUN-2014   
-%  Changed by: Irina Tecker, 12-OCT-2016
-%  Changed by: ghislain 14-Oct-2021
 
+%  Last changed: Irina Tecker, 12-OCT-2016 
 
 \chapter{Twiss Module}
 \label{chap:twiss}
 
 The \texttt{TWISS} command calculates the
-\hyperref[subsec:tables-linear]{linear lattice functions}
-\cite{Courant-Snyder1958}, and optionally the 
+\hyperref[subsec:tables-linear]{linear lattice
+  functions} \cite{Courant-Snyder1958}, and optionally the
 \hyperref[subsec:tables-chrom]{chromatic functions}. 
-The coupled functions are calculated in the sense of Edwards and
-Teng\cite{edwards1973}. 
+The coupled functions are calculated in the sense of
+Edwards and Teng\cite{edwards1973}.
 For the uncoupled cases they reduce to the C and S functions. 
 
 \madbox{
-TWISS, \=SEQUENCE=seqname, LINE=linename, RANGE=range,  \\
+TWISS, \=SEQUENCE=seqname, LINE=linename, RANGE=range,\\
        \>DELTAP=real\{,real\}||initial:final:step,\\
-       \>CHROM=logical,\\
-       \>CENTRE=logical, TOLERANCE=real, \\
-       \>FILE=filename, \\
-       \>TABLE=tabname, NOTABLE=logical,\\
-       \>RMATRIX=logical, SECTORMAP=logical, \\
-       \>SECTORTABLE=tabname, SECTORFILE=filename,\\
-       \>SECTORPURE=logical,\\
+       \>CHROM=logical, RMATRIX=logical, TAPERING=logical,\\
+       \>CENTRE=logical, TOLERANCE=real,\\
+       \>FILE=filename, TABLE=tabname, NOTABLE=logical,\\
+       \>SECTORMAP=logical, SECTORTABLE=tabname,\\
+       \>SECTORFILE=filename, SECTORPURE=logical,\\
        \>EIGENVECTOR=tabname, EIGENFILE=filename,\\
        \>KEEPORBIT=name, USEORBIT=name,\\
-       \>COUPLE=logical, EXACT=logical,\\
+       \>COUPLE=logical, EXACT=logical, \\
        \>RIPKEN=logical, TAPERING=logical \\;
 }
 
@@ -134,16 +131,12 @@ The  attributes of the \texttt{TWISS} command are:
   \texttt{"COLUMN, REij"} one gets all or the component "ij" respectively.    
 
   \ttitem{SECTORMAP} a logical flag to initiate the calculation of a 
-  \hyperref[sec:sectormap]{sector map}. Default the Rij contains
-  feed-down from higher order maps. In order to turn it off use the flag
-  \texttt{SECTORPURE}. 
+  \hyperref[sec:sectormap]{sector map}. Default the Rij contains feed-down from higher order maps. In order to turn it off use the flag SECTORPURE. 
   
-  \ttitem{SECTORACC} a logical flag to save composition of maps instead
-  of individual maps of a \hyperref[sec:sectormap]{sector map}.
+  \ttitem{SECTORACC} a logical flag to save composition of maps instead of individual maps of a
+  \hyperref[sec:sectormap]{sector map}.
 
-  \ttitem{SECTORPURE} a logical flag to save the transfer map Rij
-  without effects from higher order map (Tijk). This option should be
-  used to get it in the correct format for \texttt{TRAIN}. 
+  \ttitem{SECTORPURE} a logical flag to save the transfer map Rij without effects from higher order map (Tijk). This option should be used to get it in the correct format for TRAIN.
 
   \ttitem{SECTORTABLE} the name of the table containing the \texttt{SECTORMAP}
   values. The elements (lines) and parameters (columns) 
@@ -161,12 +154,8 @@ The  attributes of the \texttt{TWISS} command are:
   %% will go to the file "sectormap" with the format as found in
   %% \href{../Introduction/sectormap.html}{SECTORMAP}.    
 
-  \ttitem{EIGENVECTOR} a logical flag to output the eigenvectors in the
-  beginning of the sequence.  Multiplying with this matrix brings
-  normalized coordinates to physical coordinates.
-
-  \ttitem{EIGENFILE} the name of the file to which the
-  \texttt{EIGENVECTOR} is written.   
+  \ttitem{EIGENVECTOR} a logical flag to output the eigenvectors in the beginning of the sequence. Multiplying with this matrix brings normalized coordinates to physical coordinates.
+  \ttitem{EIGENFILE} the name of the file to which the \texttt{EIGENVECTOR} is written. 
 
   \ttitem{KEEPORBIT} The keeporbit attribute (with an optional name,
   keeporbit="name") stores the orbit under this name at the
@@ -181,7 +170,10 @@ The  attributes of the \texttt{TWISS} command are:
   longer be set since TWISS in \madx is always calculated in
   coupled mode. \madx computes the coupled functions in the
   sense of Edwards and Teng \cite{edwards1973}. 
-  For the uncoupled cases they reduce to the C and S functions.    
+  For the uncoupled cases they reduce to the C and S functions. 
+
+  \ttitem{EXACT} If this is used the dirft is expanded around the actual
+  closed orbit instead of the ideal orbit. (Default: false)   
   
   \textit{ Twiss calculation is 4D only!} : The \texttt{TWISS}
   command calculates an approximate 6D closed orbit when the
@@ -199,10 +191,13 @@ The  attributes of the \texttt{TWISS} command are:
   the parameters \texttt{betx, bety, alfx, alfy, \\ gamax, gamay, R11, R12,
     R21} and \texttt{R22} as input.
 
-  \ttitem{TAPERING} Adjust the strength of the quadrupoles and sextupoles
-  in order to compensate for the offset in energy. The phase of the RF is
-  also adjusted in order to find a closed 6D orbit. The change of the 
-  attributes are stored in k1tap, k2tap etc.  
+  \ttitem{TAPERING} Adjust the strengths of the quadrupoles and sextupoles
+  in order to compensate for the offset in energy. This flag triggers a
+  call to the \hyperref[chap:taper]{\texttt{TAPER}} command with default
+  parameters and no output file. 
+  %% The phase of the RF is
+  %% also adjusted in order to find a closed 6D orbit. The change of the 
+  %% attributes are stored in k1tap, k2tap etc.  
 
 \end{madlist}
 
@@ -669,9 +664,8 @@ COGUESS, \=X=real, PX=real, Y=real, PY=real, T=real, PT=real, \\
 
 The \texttt{COGUESS} command has the following attributes:
 \begin{madlist}
-  \ttitem{X, PX, Y, PY, T, PT} each parameter specified defines a first
-  guess for all future closed orbit searches in case they are different
-  from zero.
+  \ttitem{X, PX, Y, PY, T, PT} each parameter specified defines a first guess for all future closed orbit
+  searches in case they are different from zero.  
   
   \ttitem{TOLERANCE} sets the required convergence precision in the closed
   orbit search. \\ (Default: 1.e-6)  
@@ -698,46 +692,20 @@ COGUESS, CLEAR; \\
 TWISS; \\
 ... \\
 }
-
 \section{Coupling}
 \label{sec:coupling}
 
-In order to calculate Twiss parameters ($\beta$, $\alpha$ and $\phi$)
-MAD-X uses Edwards-Teng approach. 
+In order to calculate Twiss parameters ($\beta$, $\alpha$ and $\phi$) MAD-X uses Edwards-Teng approach.
 
-For coupled motion the matrix transformation can be written in a form
-$M = VUV^{-1}$, where $M$ is a symplectic 1-turn map, $U$ is a
-symplectic  decoupled block-diagonal matrix, $V$ is a symplectic
-"rotation" matrix. Initial coupling parameters are calclulated based on
-decoupled $U$ matrix.  
+For coupled motion the matrix transformation can be written in a form $M = VUV^{-1}$, where $M$ is a symplectic 1-turn map, $U$ is a symplectic decoupled block-diagonal matrix, $V$ is a symplectic "rotation" matrix. Initial coupling parameters are calclulated based on decoupled $U$ matrix. 
   
-Given that $M_1$ is the one-turn matrix at point 1, $M_2$ is the
-one-turn matrix at point 2 , and we know $M_{12}$, the transfer matrix
-between points 1 and 2, we can express the change of the one-turn map
-from point 1 to point 2 by
-{\color{blue} $M_2 =  M_{12}M_1M^{-1}_{12}$}.
-Then $U_2 = V_2^{-1}M_2V_2 = V_2^{-1}
-{\color{blue}M_{12}M_1M^{-1}_{12}} V_2 = ( V_2^{-1} M_{12}
-{\color{blue}V_1) U_1 (V_1^{-1}} M^{-1}_{12} V_2)$. 
+Given that $M_1$ is the one-turn matrix at point 1, $M_2$ is the one-turn matrix at point 2 , and we know $M_{12}$, the transfer matrix between points 1 and 2, we can express the change of the one-turn map from point 1 to point 2 by {\color{blue} $M_2 = M_{12}M_1M^{-1}_{12}$}. Then $U_2 = V_2^{-1}M_2V_2 = V_2^{-1} {\color{blue}M_{12}M_1M^{-1}_{12}} V_2 = ( V_2^{-1} M_{12} {\color{blue}V_1) U_1 (V_1^{-1}} M^{-1}_{12} V_2)$.
 
-So,  $U_2 = W_{12} U_1 W_{12}^{-1} \textrm{, where } W_{12} \equiv V_2^{-1} M_{12} V_1 $
-Knowing $V_1$ and $M_{12}$  (transfer matrix of the element), we can
-calculate $V_2 W_{12} = M_{12} V_1,$ where we use $V_{2}$ for computing
-the coupling parameters and $W_{12}$ to propagate to the end of the
-element. One can find $V_2$ such that $W_{12}$ is block-diagonal or off
-block-diagonal.  
+So,  $U_2 = W_{12} U_1 W_{12}^{-1} \textrm{, where } W_{12} \equiv V_2^{-1} M_{12}  V_1 $
+Knowing $V_1$ and $M_{12}$  (transfer matrix of the element), we can calculate $V_2 W_{12} = M_{12} V_1,$ where we use $V_{2}$ for computing the coupling parameters and $W_{12}$ to propagate to the end of the element. One can find $V_2$ such that $W_{12}$ is block-diagonal or off block-diagonal. 
   
-For weakly coupled lattice MAD-X always uses \textbf{block-diagonal}
-solution, i.e. large tune (mode1) is associated with x-plane, and
-smaller tune (mode2) is associated with y-plane by convention. For a
-highly coupled lattice, it may happen at some places in the lattice that
-mode1 is associated with y-plane, and mode2 with x-plane. Switching the
-association of mode1 and mode2 with x and y-planes as one propagates the
-twiss parameters through the lattice is called "modes flip" (use
-\textbf{off-block diagonal} solution for $W_{12}$). In case the modes
-flip is triggered, there is an additional stability check, either the
-calculation of twiss parameters can be done with modes flip or not.  
- 
+For weakly coupled lattice MAD-X always uses \textbf{block-diagonal} solution, i.e. large tune (mode1) is associated with x-plane, and smaller tune (mode2) is associated with y-plane by convention. For a highly coupled lattice, it may happen at some places in the lattice that mode1 is associated with y-plane, and mode2 with x-plane. Switching the association of mode1 and mode2 with x and y-planes as one propagates the twiss parameters through the lattice is called "modes flip" (use \textbf{off-block diagonal} solution for $W_{12}$). In case the modes flip is triggered, there is an additional stability check, either the calculation of twiss parameters can be done with modes flip or not. 
+
 \section{Intermediate values}
 
 The \texttt{SELECT, FLAG=interpolate} command allows to select locations for
